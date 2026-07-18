@@ -114,6 +114,12 @@ el identificador local del dispositivo. Un índice parcial de SQLite y una
 actualización condicional dentro de una transacción garantizan un solo ticket
 activo y un solo reclamo por terminal.
 
+La Fase 4 completa el ticket móvil y mantiene el mismo contenido en el PDF:
+comercio, sucursal, folio, fecha, productos, subtotal, impuestos, total y método
+de pago. El panel genera el QR con la misma URL canónica del NFC. La URL
+permanente puede compartirse mediante Web Share o copiarse al portapapeles; la
+facturación se muestra únicamente como función futura.
+
 ## Limitaciones conocidas
 
 No incluye login del cajero, CFDI, pagos, POS comercial, WhatsApp, aplicación
