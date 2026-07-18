@@ -1,4 +1,5 @@
 import puppeteer from "puppeteer";
+import { existsSync } from "node:fs";
 
 type PrintableTicket = {
   folio: string;
@@ -78,7 +79,18 @@ export function ticketHtml(ticket: PrintableTicket) {
 }
 
 export async function renderTicketPdf(ticket: PrintableTicket) {
-  const browser = await puppeteer.launch({ headless: true });
+  const browserCandidates = [
+    process.env.CHROME_PATH,
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+  ].filter((path): path is string => Boolean(path));
+  const executablePath = browserCandidates.find(existsSync);
+  const browser = await puppeteer.launch({
+    headless: true,
+    ...(executablePath ? { executablePath } : {}),
+  });
   try {
     const page = await browser.newPage();
     await page.setContent(ticketHtml(ticket), { waitUntil: "networkidle0" });

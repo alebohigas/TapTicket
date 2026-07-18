@@ -67,7 +67,8 @@ autenticación del panel y PostgreSQL.
 Requiere Node.js 20 o superior.
 
 ```bash
-copy .env.example .env
+copy apps\api\.env.example apps\api\.env
+copy apps\web\.env.example apps\web\.env
 npm install
 npm run db:generate
 npm run db:migrate
@@ -87,7 +88,8 @@ Abre el panel en `http://localhost:5173/admin`. La API queda en
 - Importes almacenados en centavos para evitar errores de punto flotante.
 - Bitácora `TicketEvent` para creación, activación, reclamo, expiración,
   visualización, descarga y compartición.
-- PDF renderizado desde HTML con Chromium mediante Puppeteer.
+- PDF renderizado desde HTML con Chromium mediante Puppeteer. En Windows se
+  reutiliza Chrome o Edge instalado; `CHROME_PATH` permite indicar otra ruta.
 - QR estático generado en el panel y listo para imprimirse junto a la etiqueta
   NFC.
 
