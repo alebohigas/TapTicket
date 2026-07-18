@@ -107,6 +107,13 @@ migración inicial y un seed idempotente con un comercio, una sucursal y una
 terminal. Las capacidades visibles que ya existen en el repositorio pertenecen
 a fases posteriores y se conservan, pero no se amplían como parte de esta fase.
 
+La Fase 3 usa como ruta pública canónica
+`/tap/:storeCode/:terminalSlug`. El reclamo devuelve únicamente un token
+aleatorio y la ruta permanente `/r/:claimToken`; nunca devuelve IDs internos ni
+el identificador local del dispositivo. Un índice parcial de SQLite y una
+actualización condicional dentro de una transacción garantizan un solo ticket
+activo y un solo reclamo por terminal.
+
 ## Limitaciones conocidas
 
 No incluye login del cajero, CFDI, pagos, POS comercial, WhatsApp, aplicación
