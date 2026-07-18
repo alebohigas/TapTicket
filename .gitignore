@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.db
+*.db-journal
+apps/api/prisma/dev.db*
+.vite/
+coverage/
+*.log
