@@ -5,5 +5,7 @@ dist/
 *.db-journal
 apps/api/prisma/dev.db*
 .vite/
+.npm-cache/
 coverage/
 *.log
+*.tsbuildinfo
