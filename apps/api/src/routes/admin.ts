@@ -88,6 +88,8 @@ router.put(
 const saleSchema = z.object({
   folio: z.string().trim().min(1).max(60),
   terminalId: z.string().min(1),
+  taxCents: z.number().int().min(0).max(100_000_000).default(0),
+  paymentMethod: z.enum(["CASH", "CARD", "TRANSFER", "OTHER"]),
   items: z
     .array(
       z.object({
@@ -112,16 +114,20 @@ router.post(
       ...item,
       lineTotalCents: item.quantity * item.unitPriceCents,
     }));
-    const totalCents = items.reduce(
+    const subtotalCents = items.reduce(
       (total, item) => total + item.lineTotalCents,
       0,
     );
+    const totalCents = subtotalCents + data.taxCents;
 
     const ticket = await prisma.ticket.create({
       data: {
         folio: data.folio,
-        subtotalCents: totalCents,
+        status: "READY",
+        subtotalCents,
+        taxCents: data.taxCents,
         totalCents,
+        paymentMethod: data.paymentMethod,
         branchId: terminal.branchId,
         terminalId: terminal.id,
         items: { create: items },
@@ -133,19 +139,59 @@ router.post(
   }),
 );
 
-router.post(
-  "/tickets/:id/activate",
+router.get(
+  "/tickets/:id",
   asyncRoute(async (request, response) => {
     const ticketId = z.string().parse(request.params.id);
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
+      include: ticketInclude,
     });
     if (!ticket) throw new HttpError(404, "Ticket no encontrado.");
-    if (ticket.status !== "DRAFT" && ticket.status !== "EXPIRED") {
+
+    if (
+      ticket.status === "ACTIVE" &&
+      ticket.activationExpiresAt &&
+      ticket.activationExpiresAt <= new Date()
+    ) {
+      const expired = await prisma.$transaction(async (tx) => {
+        await tx.ticketEvent.create({
+          data: { ticketId, type: "EXPIRED" },
+        });
+        return tx.ticket.update({
+          where: { id: ticketId },
+          data: { status: "EXPIRED" },
+          include: ticketInclude,
+        });
+      });
+      response.json(expired);
+      return;
+    }
+
+    response.json(ticket);
+  }),
+);
+
+const activationSchema = z.object({
+  durationSeconds: z.number().int().min(15).max(300).default(60),
+});
+
+router.post(
+  "/tickets/:id/activate",
+  asyncRoute(async (request, response) => {
+    const ticketId = z.string().parse(request.params.id);
+    const { durationSeconds } = activationSchema.parse(request.body ?? {});
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+    if (!ticket) throw new HttpError(404, "Ticket no encontrado.");
+    if (ticket.status !== "READY" && ticket.status !== "EXPIRED") {
       throw new HttpError(409, "El ticket ya no se puede activar.");
     }
 
-    const activationExpiresAt = new Date(Date.now() + 60_000);
+    const activationExpiresAt = new Date(
+      Date.now() + durationSeconds * 1_000,
+    );
     const activated = await prisma.$transaction(async (tx) => {
       await tx.ticket.updateMany({
         where: { terminalId: ticket.terminalId, status: "ACTIVE" },
@@ -155,7 +201,10 @@ router.post(
         data: {
           ticketId: ticket.id,
           type: "ACTIVATED",
-          metadataJson: JSON.stringify({ activationExpiresAt }),
+          metadataJson: JSON.stringify({
+            activationExpiresAt,
+            durationSeconds,
+          }),
         },
       });
       return tx.ticket.update({
@@ -169,6 +218,32 @@ router.post(
       });
     });
     response.json(activated);
+  }),
+);
+
+router.post(
+  "/tickets/:id/cancel",
+  asyncRoute(async (request, response) => {
+    const ticketId = z.string().parse(request.params.id);
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+    if (!ticket) throw new HttpError(404, "Ticket no encontrado.");
+    if (ticket.status !== "ACTIVE") {
+      throw new HttpError(409, "Solo un ticket activo puede cancelarse.");
+    }
+
+    const cancelled = await prisma.$transaction(async (tx) => {
+      await tx.ticketEvent.create({
+        data: { ticketId, type: "CANCELLED" },
+      });
+      return tx.ticket.update({
+        where: { id: ticketId },
+        data: { status: "CANCELLED", activationExpiresAt: null },
+        include: ticketInclude,
+      });
+    });
+    response.json(cancelled);
   }),
 );
 
