@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Branch {
+  id        String     @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  terminals Terminal[]
+  tickets   Ticket[]
+}
+
+model Terminal {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tickets   Ticket[]
+
+  @@index([branchId])
+}
+
+model Ticket {
+  id                  String        @id @default(cuid())
+  folio               String
+  status              String        @default("DRAFT")
+  subtotalCents       Int
+  totalCents          Int
+  currency            String        @default("MXN")
+  branchId            String
+  terminalId          String
+  branch              Branch        @relation(fields: [branchId], references: [id])
+  terminal            Terminal      @relation(fields: [terminalId], references: [id])
+  activationExpiresAt DateTime?
+  claimedAt           DateTime?
+  claimedDeviceId     String?
+  accessToken         String?       @unique
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  items               TicketItem[]
+  events              TicketEvent[]
+
+  @@unique([branchId, folio])
+  @@index([terminalId, status, activationExpiresAt])
+}
+
+model TicketItem {
+  id             String @id @default(cuid())
+  ticketId       String
+  ticket         Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  name           String
+  quantity       Int
+  unitPriceCents Int
+  lineTotalCents Int
+
+  @@index([ticketId])
+}
+
+model TicketEvent {
+  id           String   @id @default(cuid())
+  ticketId     String
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  type         String
+  deviceId     String?
+  metadataJson String?
+  createdAt    DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
