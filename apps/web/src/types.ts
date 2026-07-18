@@ -29,8 +29,11 @@ export type Ticket = {
   id: string;
   folio: string;
   status: string;
+  subtotalCents: number;
+  taxCents: number;
   totalCents: number;
   currency: string;
+  paymentMethod: "CASH" | "CARD" | "TRANSFER" | "OTHER";
   activationExpiresAt: string | null;
   claimedAt: string | null;
   accessToken: string | null;

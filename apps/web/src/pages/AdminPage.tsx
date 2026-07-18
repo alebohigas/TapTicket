@@ -24,6 +24,9 @@ export function AdminPage() {
   const [terminalName, setTerminalName] = useState("Caja 01");
   const [terminalSlug, setTerminalSlug] = useState("caja-01");
   const [folio, setFolio] = useState(`V-${Date.now().toString().slice(-6)}`);
+  const [tax, setTax] = useState("0.00");
+  const [paymentMethod, setPaymentMethod] =
+    useState<Ticket["paymentMethod"]>("CARD");
   const [items, setItems] = useState<DraftItem[]>([
     { name: "Café americano", quantity: 1, unitPrice: "45.00" },
     { name: "Sándwich", quantity: 1, unitPrice: "72.00" },
@@ -66,7 +69,25 @@ export function AdminPage() {
     return () => window.clearInterval(timer);
   }, [ticket?.activationExpiresAt]);
 
-  const totalCents = useMemo(
+  useEffect(() => {
+    if (!ticket || ticket.status !== "ACTIVE") return;
+    const refresh = () => {
+      api<Ticket>(`/api/admin/tickets/${ticket.id}`)
+        .then((updated) => {
+          setTicket(updated);
+          if (updated.status === "CLAIMED") {
+            setMessage("Ticket reclamado correctamente por el cliente.");
+          } else if (updated.status === "EXPIRED") {
+            setMessage("La activación expiró sin ser reclamada.");
+          }
+        })
+        .catch((error: Error) => setMessage(error.message));
+    };
+    const timer = window.setInterval(refresh, 1_000);
+    return () => window.clearInterval(timer);
+  }, [ticket?.id, ticket?.status]);
+
+  const subtotalCents = useMemo(
     () =>
       items.reduce(
         (sum, item) =>
@@ -77,6 +98,11 @@ export function AdminPage() {
       ),
     [items],
   );
+  const taxCents = Math.max(
+    0,
+    Math.round((Number.parseFloat(tax) || 0) * 100),
+  );
+  const totalCents = subtotalCents + taxCents;
 
   const publicUrl = terminal
     ? `${window.location.origin}/t/${terminal.slug}`
@@ -119,6 +145,8 @@ export function AdminPage() {
         body: JSON.stringify({
           folio,
           terminalId: terminal.id,
+          taxCents,
+          paymentMethod,
           items: items.map((item) => ({
             name: item.name,
             quantity: item.quantity,
@@ -128,7 +156,10 @@ export function AdminPage() {
       });
       const activated = await api<Ticket>(
         `/api/admin/tickets/${created.id}/activate`,
-        { method: "POST" },
+        {
+          method: "POST",
+          body: JSON.stringify({ durationSeconds: 60 }),
+        },
       );
       setTicket(activated);
       setMessage("Ticket activo. Acerca el teléfono o escanea el QR.");
@@ -151,8 +182,37 @@ export function AdminPage() {
     setTicket(null);
     setFolio(`V-${Date.now().toString().slice(-6)}`);
     setItems([blankItem()]);
+    setTax("0.00");
+    setPaymentMethod("CARD");
     setMessage("");
   }
+
+  async function cancelActivation() {
+    if (!ticket) return;
+    setBusy(true);
+    try {
+      const cancelled = await api<Ticket>(
+        `/api/admin/tickets/${ticket.id}/cancel`,
+        { method: "POST" },
+      );
+      setTicket(cancelled);
+      setMessage("Activación cancelada.");
+    } catch (error) {
+      setMessage((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const ticketStatus = ticket?.status ?? "IDLE";
+  const statusLabels: Record<string, string> = {
+    IDLE: "Listo para activar",
+    READY: "Ticket preparado",
+    ACTIVE: "Esperando al cliente",
+    CLAIMED: "Ticket reclamado",
+    EXPIRED: "Activación expirada",
+    CANCELLED: "Activación cancelada",
+  };
 
   return (
     <div className="admin-shell">
@@ -260,14 +320,57 @@ export function AdminPage() {
               + Agregar producto
             </button>
 
-            <div className="sale-total">
-              <span>Total</span>
-              <strong>{money(totalCents)}</strong>
+            <div className="sale-details">
+              <div className="field">
+                <label htmlFor="tax">Impuestos</label>
+                <div className="money-input">
+                  <span>$</span>
+                  <input
+                    id="tax"
+                    inputMode="decimal"
+                    value={tax}
+                    onChange={(event) => setTax(event.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="payment-method">Método de pago</label>
+                <select
+                  id="payment-method"
+                  value={paymentMethod}
+                  onChange={(event) =>
+                    setPaymentMethod(
+                      event.target.value as Ticket["paymentMethod"],
+                    )
+                  }
+                >
+                  <option value="CASH">Efectivo</option>
+                  <option value="CARD">Tarjeta</option>
+                  <option value="TRANSFER">Transferencia</option>
+                  <option value="OTHER">Otro</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="totals">
+              <div>
+                <span>Subtotal</span>
+                <strong>{money(subtotalCents)}</strong>
+              </div>
+              <div>
+                <span>Impuestos</span>
+                <strong>{money(taxCents)}</strong>
+              </div>
+              <div className="sale-total">
+                <span>Total</span>
+                <strong>{money(totalCents)}</strong>
+              </div>
             </div>
 
             <button
               className="button primary full"
-              disabled={busy || seconds > 0}
+              disabled={busy || ticket?.status === "ACTIVE"}
             >
               {busy ? "Preparando…" : "Activar ticket por 60 segundos"}
             </button>
@@ -277,7 +380,7 @@ export function AdminPage() {
             <div className="delivery-head">
               <div>
                 <p className="eyebrow">Entrega digital</p>
-                <h2>{seconds > 0 ? "Esperando al cliente" : "Listo para activar"}</h2>
+                <h2>{statusLabels[ticketStatus] ?? ticketStatus}</h2>
               </div>
               <div className={`timer ${seconds > 0 ? "live" : ""}`}>
                 {seconds}s
@@ -310,13 +413,22 @@ export function AdminPage() {
             )}
 
             {ticket && (
-              <div className="active-summary">
-                <span>Ticket activo</span>
+              <div className={`active-summary status-${ticket.status.toLowerCase()}`}>
+                <span>Estado: {statusLabels[ticket.status] ?? ticket.status}</span>
                 <strong>{ticket.folio}</strong>
                 <strong>{money(ticket.totalCents)}</strong>
               </div>
             )}
-            {seconds === 0 && ticket && (
+            {ticket?.status === "ACTIVE" && (
+              <button
+                className="button danger full"
+                disabled={busy}
+                onClick={cancelActivation}
+              >
+                Cancelar activación
+              </button>
+            )}
+            {ticket && ticket.status !== "ACTIVE" && (
               <button className="button secondary full" onClick={resetSale}>
                 Capturar otra venta
               </button>
