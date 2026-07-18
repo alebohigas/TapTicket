@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { HttpError } from "../lib/http.js";
+import { eventAuditData, type AuditContext } from "../lib/audit.js";
 
 export const ticketInclude = {
   items: true,
@@ -18,11 +19,12 @@ type TerminalAddress = {
 export async function claimTicket(
   address: TerminalAddress,
   deviceId: string,
+  audit?: AuditContext,
 ) {
   const now = new Date();
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const terminal = await tx.terminal.findFirst({
         where: {
           slug: address.terminalSlug,
@@ -67,10 +69,7 @@ export async function claimTicket(
       });
 
       if (!available) {
-        throw new HttpError(
-          404,
-          "No hay un ticket disponible en esta terminal.",
-        );
+        return null;
       }
 
       const accessToken = crypto.randomBytes(32).toString("base64url");
@@ -94,11 +93,23 @@ export async function claimTicket(
       }
 
       await tx.ticketEvent.create({
-        data: { ticketId: available.id, type: "CLAIMED", deviceId },
+        data: {
+          ticketId: available.id,
+          type: "CLAIMED",
+          deviceId,
+          ...eventAuditData(audit),
+        },
       });
 
       return { accessToken };
     });
+    if (!result) {
+      throw new HttpError(
+        404,
+        "No hay un ticket disponible en esta terminal.",
+      );
+    }
+    return result;
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

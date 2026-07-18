@@ -8,16 +8,29 @@ import { ZodError } from "zod";
 import adminRoutes from "./routes/admin.js";
 import publicRoutes from "./routes/public.js";
 import { HttpError } from "./lib/http.js";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 
 const app = express();
 const port = Number(process.env.API_PORT ?? 4000);
 
+app.disable("x-powered-by");
+app.use(helmet());
 app.use(
   cors({
     origin: process.env.APP_URL ?? "http://localhost:5173",
   }),
 );
 app.use(express.json({ limit: "256kb" }));
+app.use(
+  "/api",
+  rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
 
 app.get("/health", ((_request, response) => {
   response.json({ ok: true, service: "tapticket-api" });
@@ -30,7 +43,7 @@ app.use(((request, response) => {
   response.status(404).json({ error: `Ruta no encontrada: ${request.path}` });
 }) satisfies RequestHandler);
 
-app.use(((error, _request, response, _next) => {
+app.use(((error, request, response, _next) => {
   if (error instanceof ZodError) {
     response.status(400).json({
       error: "Datos inválidos.",
@@ -51,7 +64,11 @@ app.use(((error, _request, response, _next) => {
     response.status(409).json({ error: "El folio o identificador ya existe." });
     return;
   }
-  console.error(error);
+  console.error({
+    method: request.method,
+    path: request.path,
+    error,
+  });
   response.status(500).json({ error: "Error interno del servidor." });
 }) satisfies ErrorRequestHandler);
 

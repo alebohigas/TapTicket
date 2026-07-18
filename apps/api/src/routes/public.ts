@@ -8,8 +8,17 @@ import {
   ticketInclude,
 } from "../services/ticket.js";
 import { renderTicketPdf } from "../services/pdf.js";
+import { eventAuditData, requestAudit } from "../lib/audit.js";
+import { rateLimit } from "express-rate-limit";
 
 const router = Router();
+const claimLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiados intentos. Espera un momento." },
+});
 
 const terminalParamsSchema = z.object({
   storeCode: z.string().trim().min(1).max(80).optional(),
@@ -54,19 +63,22 @@ router.get(
 
 router.post(
   ["/terminals/:slug/claim", "/terminals/:storeCode/:slug/claim"],
+  claimLimiter,
   asyncRoute(async (request, response) => {
     const { storeCode, slug } = terminalParamsSchema.parse(request.params);
-    const { deviceId } = z
+    const { deviceId, source } = z
       .object({
         deviceId: z
           .string()
           .uuid()
           .or(z.string().regex(/^[A-Za-z0-9_-]{16,120}$/)),
+        source: z.enum(["NFC", "QR", "UNKNOWN"]).default("UNKNOWN"),
       })
       .parse(request.body);
     const { accessToken } = await claimTicket(
       { storeCode, terminalSlug: slug },
       deviceId,
+      requestAudit(request, source),
     );
     response.json({
       claimToken: accessToken,
@@ -87,7 +99,11 @@ router.get(
       throw new HttpError(404, "Ticket no encontrado.");
     }
     await prisma.ticketEvent.create({
-      data: { ticketId: ticket.id, type: "VIEWED" },
+      data: {
+        ticketId: ticket.id,
+        type: "VIEWED",
+        ...eventAuditData(requestAudit(request)),
+      },
     });
     response.json(publicTicket(ticket));
   }),
@@ -105,7 +121,13 @@ router.post(
       select: { id: true },
     });
     if (!ticket) throw new HttpError(404, "Ticket no encontrado.");
-    await prisma.ticketEvent.create({ data: { ticketId: ticket.id, type } });
+    await prisma.ticketEvent.create({
+      data: {
+        ticketId: ticket.id,
+        type,
+        ...eventAuditData(requestAudit(request)),
+      },
+    });
     response.status(204).end();
   }),
 );
@@ -127,7 +149,11 @@ router.get(
     }
     const pdf = await renderTicketPdf(ticket);
     await prisma.ticketEvent.create({
-      data: { ticketId: ticket.id, type: "PDF_DOWNLOADED" },
+      data: {
+        ticketId: ticket.id,
+        type: "PDF_DOWNLOADED",
+        ...eventAuditData(requestAudit(request)),
+      },
     });
     response
       .status(200)
