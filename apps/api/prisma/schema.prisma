@@ -7,20 +7,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Merchant {
+  id        String   @id @default(cuid())
+  name      String
+  legalName String?
+  taxId     String?  @unique
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branches  Branch[]
+}
+
 model Branch {
   id        String     @id @default(cuid())
+  merchantId String
+  merchant  Merchant   @relation(fields: [merchantId], references: [id])
   name      String
+  code      String
   address   String?
+  status    String     @default("ACTIVE")
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   terminals Terminal[]
   tickets   Ticket[]
+
+  @@unique([merchantId, code])
+  @@index([merchantId])
 }
 
 model Terminal {
   id        String   @id @default(cuid())
   name      String
+  code      String
   slug      String   @unique
+  status    String   @default("ACTIVE")
   branchId  String
   branch    Branch   @relation(fields: [branchId], references: [id])
   createdAt DateTime @default(now())
@@ -28,6 +48,7 @@ model Terminal {
   tickets   Ticket[]
 
   @@index([branchId])
+  @@unique([branchId, code])
 }
 
 model Ticket {
@@ -35,12 +56,15 @@ model Ticket {
   folio               String
   status              String        @default("DRAFT")
   subtotalCents       Int
+  taxCents            Int           @default(0)
   totalCents          Int
   currency            String        @default("MXN")
+  paymentMethod       String        @default("OTHER")
   branchId            String
   terminalId          String
   branch              Branch        @relation(fields: [branchId], references: [id])
   terminal            Terminal      @relation(fields: [terminalId], references: [id])
+  activatedAt         DateTime?
   activationExpiresAt DateTime?
   claimedAt           DateTime?
   claimedDeviceId     String?

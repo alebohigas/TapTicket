@@ -1,17 +1,34 @@
 -- CreateTable
-CREATE TABLE "Branch" (
+CREATE TABLE "Merchant" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
-    "address" TEXT,
+    "legalName" TEXT,
+    "taxId" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "Branch" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "merchantId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "address" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Branch_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "Terminal" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "branchId" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
@@ -24,10 +41,13 @@ CREATE TABLE "Ticket" (
     "folio" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'DRAFT',
     "subtotalCents" INTEGER NOT NULL,
+    "taxCents" INTEGER NOT NULL DEFAULT 0,
     "totalCents" INTEGER NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'MXN',
+    "paymentMethod" TEXT NOT NULL DEFAULT 'OTHER',
     "branchId" TEXT NOT NULL,
     "terminalId" TEXT NOT NULL,
+    "activatedAt" DATETIME,
     "activationExpiresAt" DATETIME,
     "claimedAt" DATETIME,
     "claimedDeviceId" TEXT,
@@ -61,8 +81,12 @@ CREATE TABLE "TicketEvent" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Merchant_taxId_key" ON "Merchant"("taxId");
+CREATE UNIQUE INDEX "Branch_merchantId_code_key" ON "Branch"("merchantId", "code");
+CREATE INDEX "Branch_merchantId_idx" ON "Branch"("merchantId");
 CREATE UNIQUE INDEX "Terminal_slug_key" ON "Terminal"("slug");
 CREATE INDEX "Terminal_branchId_idx" ON "Terminal"("branchId");
+CREATE UNIQUE INDEX "Terminal_branchId_code_key" ON "Terminal"("branchId", "code");
 CREATE UNIQUE INDEX "Ticket_accessToken_key" ON "Ticket"("accessToken");
 CREATE UNIQUE INDEX "Ticket_branchId_folio_key" ON "Ticket"("branchId", "folio");
 CREATE INDEX "Ticket_terminalId_status_activationExpiresAt_idx" ON "Ticket"("terminalId", "status", "activationExpiresAt");

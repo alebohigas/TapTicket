@@ -93,7 +93,9 @@ export async function renderTicketPdf(ticket: PrintableTicket) {
   });
   try {
     const page = await browser.newPage();
-    await page.setContent(ticketHtml(ticket), { waitUntil: "networkidle0" });
+    await page.setContent(ticketHtml(ticket), {
+      waitUntil: "domcontentloaded",
+    });
     return Buffer.from(
       await page.pdf({
         width: "80mm",

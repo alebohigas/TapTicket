@@ -39,13 +39,29 @@ router.put(
     });
 
     const terminal = await prisma.$transaction(async (tx) => {
+      const merchant = current
+        ? await tx.merchant.findFirstOrThrow({
+            where: { branches: { some: { id: current.branchId } } },
+          })
+        : await tx.merchant.create({
+            data: {
+              name: data.branchName,
+              status: "ACTIVE",
+            },
+          });
+
       const branch = current
         ? await tx.branch.update({
             where: { id: current.branchId },
             data: { name: data.branchName, address: data.branchAddress },
           })
         : await tx.branch.create({
-            data: { name: data.branchName, address: data.branchAddress },
+            data: {
+              merchantId: merchant.id,
+              name: data.branchName,
+              code: "STORE-001",
+              address: data.branchAddress,
+            },
           });
 
       return current
@@ -57,6 +73,7 @@ router.put(
         : tx.terminal.create({
             data: {
               name: data.terminalName,
+              code: "TERMINAL-01",
               slug: data.terminalSlug,
               branchId: branch.id,
             },
@@ -119,8 +136,9 @@ router.post(
 router.post(
   "/tickets/:id/activate",
   asyncRoute(async (request, response) => {
+    const ticketId = z.string().parse(request.params.id);
     const ticket = await prisma.ticket.findUnique({
-      where: { id: request.params.id },
+      where: { id: ticketId },
     });
     if (!ticket) throw new HttpError(404, "Ticket no encontrado.");
     if (ticket.status !== "DRAFT" && ticket.status !== "EXPIRED") {
@@ -142,7 +160,11 @@ router.post(
       });
       return tx.ticket.update({
         where: { id: ticket.id },
-        data: { status: "ACTIVE", activationExpiresAt },
+        data: {
+          status: "ACTIVE",
+          activatedAt: new Date(),
+          activationExpiresAt,
+        },
         include: ticketInclude,
       });
     });

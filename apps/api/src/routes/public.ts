@@ -14,8 +14,9 @@ const router = Router();
 router.get(
   "/terminals/:slug",
   asyncRoute(async (request, response) => {
+    const slug = z.string().parse(request.params.slug);
     const terminal = await prisma.terminal.findUnique({
-      where: { slug: request.params.slug },
+      where: { slug },
       include: { branch: true },
     });
     if (!terminal) throw new HttpError(404, "Terminal no encontrada.");
@@ -26,10 +27,11 @@ router.get(
 router.post(
   "/terminals/:slug/claim",
   asyncRoute(async (request, response) => {
+    const slug = z.string().parse(request.params.slug);
     const { deviceId } = z
       .object({ deviceId: z.string().min(16).max(120) })
       .parse(request.body);
-    const ticket = await claimTicket(request.params.slug, deviceId);
+    const ticket = await claimTicket(slug, deviceId);
     response.json(publicTicket(ticket));
   }),
 );
@@ -37,8 +39,9 @@ router.post(
 router.get(
   "/tickets/:token",
   asyncRoute(async (request, response) => {
+    const token = z.string().parse(request.params.token);
     const ticket = await prisma.ticket.findUnique({
-      where: { accessToken: request.params.token },
+      where: { accessToken: token },
       include: ticketInclude,
     });
     if (!ticket || ticket.status !== "CLAIMED") {
@@ -54,11 +57,12 @@ router.get(
 router.post(
   "/tickets/:token/events",
   asyncRoute(async (request, response) => {
+    const token = z.string().parse(request.params.token);
     const { type } = z
       .object({ type: z.enum(["SHARED"]) })
       .parse(request.body);
     const ticket = await prisma.ticket.findUnique({
-      where: { accessToken: request.params.token },
+      where: { accessToken: token },
       select: { id: true },
     });
     if (!ticket) throw new HttpError(404, "Ticket no encontrado.");
@@ -70,8 +74,9 @@ router.post(
 router.get(
   "/tickets/:token/pdf",
   asyncRoute(async (request, response) => {
+    const token = z.string().parse(request.params.token);
     const ticket = await prisma.ticket.findUnique({
-      where: { accessToken: request.params.token },
+      where: { accessToken: token },
       include: { items: true, branch: true, terminal: true },
     });
     if (!ticket || ticket.status !== "CLAIMED") {
