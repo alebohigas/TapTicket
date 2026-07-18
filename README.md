@@ -81,6 +81,12 @@ npm run db:seed
 npm run dev
 ```
 
+Las pruebas del reclamo único y de expiración se ejecutan con:
+
+```bash
+npm run test -w @tapticket/api
+```
+
 Abre el panel en `http://localhost:5173/admin`. La API queda en
 `http://localhost:4000` y expone `GET /health`.
 
@@ -119,6 +125,13 @@ comercio, sucursal, folio, fecha, productos, subtotal, impuestos, total y métod
 de pago. El panel genera el QR con la misma URL canónica del NFC. La URL
 permanente puede compartirse mediante Web Share o copiarse al portapapeles; la
 facturación se muestra únicamente como función futura.
+
+La Fase 5 añade auditoría básica a los eventos públicos (origen QR/NFC, IP y
+navegador), límites de solicitudes y encabezados HTTP de seguridad. El panel
+muestra tickets creados y reclamados, porcentaje y tiempo promedio de reclamo,
+descargas, compartidos y origen de entrega. Los endpoints administrativos
+permiten consultar el resumen, tickets recientes y la secuencia de eventos de
+un ticket. No se considera analítica avanzada.
 
 ## Limitaciones conocidas
 
