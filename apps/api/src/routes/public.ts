@@ -11,13 +11,35 @@ import { renderTicketPdf } from "../services/pdf.js";
 
 const router = Router();
 
+const terminalParamsSchema = z.object({
+  storeCode: z.string().trim().min(1).max(80).optional(),
+  slug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+});
+
 router.get(
-  "/terminals/:slug",
+  ["/terminals/:slug", "/terminals/:storeCode/:slug"],
   asyncRoute(async (request, response) => {
-    const slug = z.string().parse(request.params.slug);
-    const terminal = await prisma.terminal.findUnique({
-      where: { slug },
-      include: { branch: true },
+    const { storeCode, slug } = terminalParamsSchema.parse(request.params);
+    const terminal = await prisma.terminal.findFirst({
+      where: {
+        slug,
+        status: "ACTIVE",
+        branch: {
+          status: "ACTIVE",
+          ...(storeCode ? { code: storeCode } : {}),
+          merchant: { status: "ACTIVE" },
+        },
+      },
+      select: {
+        name: true,
+        slug: true,
+        branch: { select: { name: true, code: true } },
+      },
     });
     if (!terminal) throw new HttpError(404, "Terminal no encontrada.");
     response.json(terminal);
@@ -25,14 +47,25 @@ router.get(
 );
 
 router.post(
-  "/terminals/:slug/claim",
+  ["/terminals/:slug/claim", "/terminals/:storeCode/:slug/claim"],
   asyncRoute(async (request, response) => {
-    const slug = z.string().parse(request.params.slug);
+    const { storeCode, slug } = terminalParamsSchema.parse(request.params);
     const { deviceId } = z
-      .object({ deviceId: z.string().min(16).max(120) })
+      .object({
+        deviceId: z
+          .string()
+          .uuid()
+          .or(z.string().regex(/^[A-Za-z0-9_-]{16,120}$/)),
+      })
       .parse(request.body);
-    const ticket = await claimTicket(slug, deviceId);
-    response.json(publicTicket(ticket));
+    const { accessToken } = await claimTicket(
+      { storeCode, terminalSlug: slug },
+      deviceId,
+    );
+    response.json({
+      claimToken: accessToken,
+      receiptPath: `/r/${accessToken}`,
+    });
   }),
 );
 
