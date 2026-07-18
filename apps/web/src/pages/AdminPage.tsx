@@ -105,7 +105,7 @@ export function AdminPage() {
   const totalCents = subtotalCents + taxCents;
 
   const publicUrl = terminal
-    ? `${window.location.origin}/t/${terminal.slug}`
+    ? `${window.location.origin}/tap/${encodeURIComponent(terminal.branch.code)}/${terminal.slug}`
     : "";
 
   async function saveConfig(event: FormEvent) {

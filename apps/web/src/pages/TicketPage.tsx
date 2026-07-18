@@ -96,8 +96,8 @@ export function TicketPage() {
         </div>
 
         <div className="receipt-items">
-          {ticket.items.map((item) => (
-            <div className="receipt-item" key={item.id}>
+          {ticket.items.map((item, index) => (
+            <div className="receipt-item" key={`${item.name}-${index}`}>
               <div>
                 <strong>{item.name}</strong>
                 <span>

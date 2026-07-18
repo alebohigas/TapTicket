@@ -2,19 +2,23 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Logo } from "../components/Logo";
 import { api, getDeviceId } from "../lib/api";
-import type { Terminal, Ticket } from "../types";
+import type { ClaimResponse, PublicTerminal } from "../types";
 
 export function ClaimPage() {
   const { slug = "" } = useParams();
+  const { storeCode } = useParams();
   const navigate = useNavigate();
-  const [terminal, setTerminal] = useState<Terminal | null>(null);
+  const [terminal, setTerminal] = useState<PublicTerminal | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "claiming" | "empty">(
     "loading",
   );
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    api<Terminal>(`/api/public/terminals/${slug}`)
+    const terminalPath = storeCode
+      ? `/api/public/terminals/${encodeURIComponent(storeCode)}/${slug}`
+      : `/api/public/terminals/${slug}`;
+    api<PublicTerminal>(terminalPath)
       .then((value) => {
         setTerminal(value);
         setState("ready");
@@ -23,20 +27,23 @@ export function ClaimPage() {
         setMessage(error.message);
         setState("empty");
       });
-  }, [slug]);
+  }, [slug, storeCode]);
 
   async function claim() {
     setState("claiming");
     try {
-      const ticket = await api<Ticket>(
-        `/api/public/terminals/${slug}/claim`,
+      const claimPath = storeCode
+        ? `/api/public/terminals/${encodeURIComponent(storeCode)}/${slug}/claim`
+        : `/api/public/terminals/${slug}/claim`;
+      const claim = await api<ClaimResponse>(
+        claimPath,
         {
           method: "POST",
           body: JSON.stringify({ deviceId: getDeviceId() }),
         },
       );
-      localStorage.setItem(`tapticket:${slug}`, ticket.accessToken ?? "");
-      navigate(`/ticket/${ticket.accessToken}`, { replace: true });
+      localStorage.setItem(`tapticket:${slug}`, claim.claimToken);
+      navigate(claim.receiptPath, { replace: true });
     } catch (error) {
       setMessage((error as Error).message);
       setState("empty");

@@ -1,6 +1,7 @@
 export type Branch = {
   id: string;
   name: string;
+  code: string;
   address: string | null;
 };
 
@@ -11,8 +12,22 @@ export type Terminal = {
   branch: Branch;
 };
 
+export type PublicTerminal = {
+  name: string;
+  slug: string;
+  branch: {
+    name: string;
+    code: string;
+  };
+};
+
+export type ClaimResponse = {
+  claimToken: string;
+  receiptPath: string;
+};
+
 export type TicketItem = {
-  id: string;
+  id?: string;
   name: string;
   quantity: number;
   unitPriceCents: number;
