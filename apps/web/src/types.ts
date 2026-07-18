@@ -18,6 +18,9 @@ export type PublicTerminal = {
   branch: {
     name: string;
     code: string;
+    merchant: {
+      name: string;
+    };
   };
 };
 
@@ -53,8 +56,34 @@ export type Ticket = {
   claimedAt: string | null;
   accessToken: string | null;
   createdAt: string;
+  merchant: {
+    name: string;
+  };
   branch: Branch;
   terminal: Omit<Terminal, "branch">;
   items: TicketItem[];
   events: TicketEvent[];
+};
+
+export type PublicTicket = {
+  folio: string;
+  status: "CLAIMED";
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+  currency: string;
+  paymentMethod: "CASH" | "CARD" | "TRANSFER" | "OTHER";
+  claimedAt: string;
+  createdAt: string;
+  merchant: {
+    name: string;
+  };
+  branch: {
+    name: string;
+    address: string | null;
+  };
+  terminal: {
+    name: string;
+  };
+  items: Array<Omit<TicketItem, "id">>;
 };

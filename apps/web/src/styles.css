@@ -717,6 +717,31 @@ select:focus {
   padding-top: 18px;
 }
 
+.receipt-totals {
+  border-top: 1px solid var(--ink);
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 16px;
+}
+
+.receipt-totals > div {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+}
+
+.receipt-totals > div:not(.receipt-total) {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.receipt-totals .receipt-total {
+  border-top: 1px dashed #bdc8c3;
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
 .receipt-total strong {
   font-size: 27px;
 }
@@ -746,6 +771,10 @@ select:focus {
   margin-top: 30px;
   max-width: 540px;
   width: 100%;
+}
+
+.ticket-actions .button:last-child {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 800px) {

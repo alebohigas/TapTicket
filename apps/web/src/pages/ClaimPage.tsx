@@ -58,11 +58,11 @@ export function ClaimPage() {
         {state === "ready" && (
           <>
             <div className="tap-icon">⌁</div>
-            <p className="eyebrow">{terminal?.branch.name}</p>
+            <p className="eyebrow">{terminal?.branch.merchant.name}</p>
             <h1>Tu ticket está listo</h1>
             <p>
-              Reclama el ticket disponible en {terminal?.name}. Solo este
-              dispositivo podrá abrirlo primero.
+              Reclama el ticket de {terminal?.branch.name}, {terminal?.name}.
+              Solo este dispositivo podrá abrirlo primero.
             </p>
             <button className="button primary full large" onClick={claim}>
               Ver mi ticket

@@ -2,16 +2,22 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Logo } from "../components/Logo";
 import { API_URL, api, money } from "../lib/api";
-import type { Ticket } from "../types";
+import type { PublicTicket } from "../types";
 
 export function TicketPage() {
   const { token = "" } = useParams();
-  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [ticket, setTicket] = useState<PublicTicket | null>(null);
   const [error, setError] = useState("");
   const [shared, setShared] = useState(false);
+  const paymentMethodLabels: Record<PublicTicket["paymentMethod"], string> = {
+    CASH: "Efectivo",
+    CARD: "Tarjeta",
+    TRANSFER: "Transferencia",
+    OTHER: "Otro",
+  };
 
   useEffect(() => {
-    api<Ticket>(`/api/public/tickets/${token}`)
+    api<PublicTicket>(`/api/public/tickets/${token}`)
       .then(setTicket)
       .catch((reason: Error) => setError(reason.message));
   }, [token]);
@@ -19,7 +25,7 @@ export function TicketPage() {
   async function share() {
     const shareData = {
       title: `Ticket ${ticket?.folio ?? ""}`,
-      text: `Ticket digital de ${ticket?.branch.name ?? "tu compra"}`,
+      text: `Ticket digital de ${ticket?.merchant.name ?? "tu compra"}`,
       url: window.location.href,
     };
     if (navigator.share) {
@@ -67,10 +73,13 @@ export function TicketPage() {
       </div>
       <article className="receipt">
         <header className="receipt-header">
-          <div className="store-mark">{ticket.branch.name.charAt(0)}</div>
+          <div className="store-mark">{ticket.merchant.name.charAt(0)}</div>
           <div>
-            <h1>{ticket.branch.name}</h1>
-            <p>{ticket.branch.address}</p>
+            <h1>{ticket.merchant.name}</h1>
+            <p>
+              {ticket.branch.name}
+              {ticket.branch.address ? ` · ${ticket.branch.address}` : ""}
+            </p>
           </div>
         </header>
 
@@ -109,11 +118,23 @@ export function TicketPage() {
           ))}
         </div>
 
-        <div className="receipt-total">
-          <span>Total</span>
-          <strong>{money(ticket.totalCents, ticket.currency)}</strong>
+        <div className="receipt-totals">
+          <div>
+            <span>Subtotal</span>
+            <strong>{money(ticket.subtotalCents, ticket.currency)}</strong>
+          </div>
+          <div>
+            <span>Impuestos</span>
+            <strong>{money(ticket.taxCents, ticket.currency)}</strong>
+          </div>
+          <div className="receipt-total">
+            <span>Total</span>
+            <strong>{money(ticket.totalCents, ticket.currency)}</strong>
+          </div>
         </div>
-        <div className="paid-badge">✓ Ticket digital emitido</div>
+        <div className="paid-badge">
+          ✓ Pago registrado · {paymentMethodLabels[ticket.paymentMethod]}
+        </div>
         <footer>Gracias por tu compra</footer>
       </article>
 
@@ -126,6 +147,14 @@ export function TicketPage() {
         </a>
         <button className="button secondary" onClick={share}>
           {shared ? "Enlace copiado" : "Compartir"}
+        </button>
+        <button
+          className="button ghost"
+          type="button"
+          disabled
+          title="Disponible próximamente"
+        >
+          Facturar próximamente
         </button>
       </div>
       <p className="public-footer">
