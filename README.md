@@ -47,6 +47,11 @@ desplegarse independientemente. Prisma aísla el acceso a datos; migrar a
 PostgreSQL requiere cambiar el proveedor y revisar los tipos, sin reescribir las
 rutas. SQLite es únicamente la base de desarrollo.
 
+La base del dominio parte de `Merchant` (comercio), `Branch` (sucursal),
+`Terminal`, `Ticket`, `TicketItem` y `TicketEvent`. `Branch` conserva ese nombre
+interno para mantener compatibilidad con el código existente, pero representa
+la entidad `Store` descrita en `PROJECT_CONTEXT.md`.
+
 ## Estados y seguridad del reclamo
 
 - `DRAFT`: venta capturada, todavía privada.
@@ -92,6 +97,15 @@ Abre el panel en `http://localhost:5173/admin`. La API queda en
   reutiliza Chrome o Edge instalado; `CHROME_PATH` permite indicar otra ruta.
 - QR estático generado en el panel y listo para imprimirse junto a la etiqueta
   NFC.
+- Tailwind CSS está integrado con Vite para las nuevas vistas; los estilos
+  existentes permanecen en CSS mientras se completa la migración gradual.
+
+## Estado de implementación
+
+La Fase 1 cubre el monorepo, las aplicaciones web/API, Prisma con SQLite, la
+migración inicial y un seed idempotente con un comercio, una sucursal y una
+terminal. Las capacidades visibles que ya existen en el repositorio pertenecen
+a fases posteriores y se conservan, pero no se amplían como parte de esta fase.
 
 ## Limitaciones conocidas
 
