@@ -5,7 +5,7 @@ import { HttpError } from "../lib/http.js";
 
 export const ticketInclude = {
   items: true,
-  branch: true,
+  branch: { include: { merchant: true } },
   terminal: true,
   events: { orderBy: { createdAt: "asc" as const } },
 };
@@ -125,6 +125,9 @@ export function publicTicket(ticket: TicketWithRelations) {
     paymentMethod: ticket.paymentMethod,
     claimedAt: ticket.claimedAt,
     createdAt: ticket.createdAt,
+    merchant: {
+      name: ticket.branch.merchant.name,
+    },
     branch: {
       name: ticket.branch.name,
       address: ticket.branch.address,

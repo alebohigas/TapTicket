@@ -38,7 +38,13 @@ router.get(
       select: {
         name: true,
         slug: true,
-        branch: { select: { name: true, code: true } },
+        branch: {
+          select: {
+            name: true,
+            code: true,
+            merchant: { select: { name: true } },
+          },
+        },
       },
     });
     if (!terminal) throw new HttpError(404, "Terminal no encontrada.");
@@ -110,7 +116,11 @@ router.get(
     const token = z.string().parse(request.params.token);
     const ticket = await prisma.ticket.findUnique({
       where: { accessToken: token },
-      include: { items: true, branch: true, terminal: true },
+      include: {
+        items: true,
+        branch: { include: { merchant: true } },
+        terminal: true,
+      },
     });
     if (!ticket || ticket.status !== "CLAIMED") {
       throw new HttpError(404, "Ticket no encontrado.");

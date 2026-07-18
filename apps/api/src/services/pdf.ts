@@ -4,9 +4,16 @@ import { existsSync } from "node:fs";
 type PrintableTicket = {
   folio: string;
   createdAt: Date;
+  subtotalCents: number;
+  taxCents: number;
   totalCents: number;
   currency: string;
-  branch: { name: string; address: string | null };
+  paymentMethod: string;
+  branch: {
+    name: string;
+    address: string | null;
+    merchant: { name: string };
+  };
   terminal: { name: string };
   items: Array<{
     name: string;
@@ -33,6 +40,13 @@ const money = (cents: number, currency: string) =>
     style: "currency",
     currency,
   }).format(cents / 100);
+
+const paymentMethodLabels: Record<string, string> = {
+  CASH: "Efectivo",
+  CARD: "Tarjeta",
+  TRANSFER: "Transferencia",
+  OTHER: "Otro",
+};
 
 export function ticketHtml(ticket: PrintableTicket) {
   const rows = ticket.items
@@ -64,13 +78,20 @@ export function ticketHtml(ticket: PrintableTicket) {
       </style>
     </head>
     <body>
-      <h1>${escapeHtml(ticket.branch.name)}</h1>
+      <h1>${escapeHtml(ticket.branch.merchant.name)}</h1>
+      <div>${escapeHtml(ticket.branch.name)}</div>
       <div class="muted">${escapeHtml(ticket.branch.address ?? "")}</div>
       <div class="rule"></div>
       <div>Folio <strong>${escapeHtml(ticket.folio)}</strong></div>
       <div class="muted">${ticket.terminal.name} · ${ticket.createdAt.toLocaleString("es-MX")}</div>
       <div class="rule"></div>
       <table>${rows}</table>
+      <div class="rule"></div>
+      <table>
+        <tr><td>Subtotal</td><td>${money(ticket.subtotalCents, ticket.currency)}</td></tr>
+        <tr><td>Impuestos</td><td>${money(ticket.taxCents, ticket.currency)}</td></tr>
+        <tr><td>Método de pago</td><td>${escapeHtml(paymentMethodLabels[ticket.paymentMethod] ?? "Otro")}</td></tr>
+      </table>
       <div class="rule"></div>
       <table><tr class="total"><td>Total</td><td>${money(ticket.totalCents, ticket.currency)}</td></tr></table>
       <footer>Gracias por tu compra<br><span class="muted">Ticket digital por TapTicket</span></footer>
