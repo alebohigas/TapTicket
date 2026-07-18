@@ -29,6 +29,128 @@ router.get(
   }),
 );
 
+router.get(
+  "/metrics",
+  asyncRoute(async (_request, response) => {
+    const [
+      ticketsCreated,
+      ticketsActivated,
+      ticketsClaimed,
+      ticketsExpired,
+      pdfDownloads,
+      shares,
+      claimedTickets,
+      claimEvents,
+      ticketsByTerminal,
+    ] = await Promise.all([
+      prisma.ticket.count(),
+      prisma.ticketEvent.count({ where: { type: "ACTIVATED" } }),
+      prisma.ticket.count({ where: { status: "CLAIMED" } }),
+      prisma.ticket.count({ where: { status: "EXPIRED" } }),
+      prisma.ticketEvent.count({ where: { type: "PDF_DOWNLOADED" } }),
+      prisma.ticketEvent.count({ where: { type: "SHARED" } }),
+      prisma.ticket.findMany({
+        where: {
+          status: "CLAIMED",
+          activatedAt: { not: null },
+          claimedAt: { not: null },
+        },
+        select: { activatedAt: true, claimedAt: true },
+      }),
+      prisma.ticketEvent.findMany({
+        where: { type: "CLAIMED" },
+        select: { metadataJson: true },
+      }),
+      prisma.ticket.groupBy({
+        by: ["terminalId"],
+        _count: { _all: true },
+      }),
+    ]);
+
+    const averageClaimSeconds =
+      claimedTickets.length === 0
+        ? null
+        : Math.round(
+            claimedTickets.reduce(
+              (total, ticket) =>
+                total +
+                (ticket.claimedAt!.getTime() -
+                  ticket.activatedAt!.getTime()) /
+                  1_000,
+              0,
+            ) / claimedTickets.length,
+          );
+    const sources = claimEvents.reduce(
+      (totals, event) => {
+        try {
+          const source: unknown = JSON.parse(
+            event.metadataJson ?? "{}",
+          ).source;
+          if (source === "QR" || source === "NFC") totals[source] += 1;
+          else totals.UNKNOWN += 1;
+        } catch {
+          totals.UNKNOWN += 1;
+        }
+        return totals;
+      },
+      { QR: 0, NFC: 0, UNKNOWN: 0 },
+    );
+    const terminalIds = ticketsByTerminal.map(({ terminalId }) => terminalId);
+    const terminals = await prisma.terminal.findMany({
+      where: { id: { in: terminalIds } },
+      select: { id: true, name: true },
+    });
+    const terminalNames = new Map(
+      terminals.map((terminal) => [terminal.id, terminal.name]),
+    );
+
+    response.json({
+      ticketsCreated,
+      ticketsActivated,
+      ticketsClaimed,
+      ticketsExpired,
+      claimRate:
+        ticketsActivated === 0
+          ? 0
+          : Math.round((ticketsClaimed / ticketsActivated) * 10_000) / 100,
+      averageClaimSeconds,
+      pdfDownloads,
+      shares,
+      sources,
+      ticketsByTerminal: ticketsByTerminal.map((group) => ({
+        terminalId: group.terminalId,
+        terminalName: terminalNames.get(group.terminalId) ?? "Terminal",
+        tickets: group._count._all,
+      })),
+    });
+  }),
+);
+
+router.get(
+  "/tickets",
+  asyncRoute(async (request, response) => {
+    const { limit } = z
+      .object({
+        limit: z.coerce.number().int().min(1).max(100).default(25),
+      })
+      .parse(request.query);
+    const tickets = await prisma.ticket.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        folio: true,
+        status: true,
+        totalCents: true,
+        currency: true,
+        createdAt: true,
+        terminal: { select: { name: true } },
+      },
+    });
+    response.json(tickets);
+  }),
+);
+
 router.put(
   "/config",
   asyncRoute(async (request, response) => {
@@ -169,6 +291,30 @@ router.get(
     }
 
     response.json(ticket);
+  }),
+);
+
+router.get(
+  "/tickets/:id/events",
+  asyncRoute(async (request, response) => {
+    const ticketId = z.string().parse(request.params.id);
+    const exists = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { id: true },
+    });
+    if (!exists) throw new HttpError(404, "Ticket no encontrado.");
+    const events = await prisma.ticketEvent.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        type: true,
+        metadataJson: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+      },
+    });
+    response.json(events);
   }),
 );
 

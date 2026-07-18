@@ -29,6 +29,22 @@ export type ClaimResponse = {
   receiptPath: string;
 };
 
+export type Metrics = {
+  ticketsCreated: number;
+  ticketsActivated: number;
+  ticketsClaimed: number;
+  ticketsExpired: number;
+  claimRate: number;
+  averageClaimSeconds: number | null;
+  pdfDownloads: number;
+  shares: number;
+  sources: {
+    QR: number;
+    NFC: number;
+    UNKNOWN: number;
+  };
+};
+
 export type TicketItem = {
   id?: string;
   name: string;

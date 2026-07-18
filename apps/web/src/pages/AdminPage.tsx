@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Logo } from "../components/Logo";
 import { api, money } from "../lib/api";
-import type { Terminal, Ticket } from "../types";
+import type { Metrics, Terminal, Ticket } from "../types";
 
 type DraftItem = {
   name: string;
@@ -35,6 +35,13 @@ export function AdminPage() {
   const [seconds, setSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+
+  function loadMetrics() {
+    api<Metrics>("/api/admin/metrics")
+      .then(setMetrics)
+      .catch((error: Error) => setMessage(error.message));
+  }
 
   useEffect(() => {
     api<Terminal | null>("/api/admin/config")
@@ -50,6 +57,7 @@ export function AdminPage() {
         setTerminalSlug(value.slug);
       })
       .catch((error: Error) => setMessage(error.message));
+    loadMetrics();
   }, []);
 
   useEffect(() => {
@@ -77,8 +85,10 @@ export function AdminPage() {
           setTicket(updated);
           if (updated.status === "CLAIMED") {
             setMessage("Ticket reclamado correctamente por el cliente.");
+            loadMetrics();
           } else if (updated.status === "EXPIRED") {
             setMessage("La activación expiró sin ser reclamada.");
+            loadMetrics();
           }
         })
         .catch((error: Error) => setMessage(error.message));
@@ -107,6 +117,7 @@ export function AdminPage() {
   const publicUrl = terminal
     ? `${window.location.origin}/tap/${encodeURIComponent(terminal.branch.code)}/${terminal.slug}`
     : "";
+  const qrUrl = publicUrl ? `${publicUrl}?source=qr` : "";
 
   async function saveConfig(event: FormEvent) {
     event.preventDefault();
@@ -163,6 +174,7 @@ export function AdminPage() {
       );
       setTicket(activated);
       setMessage("Ticket activo. Acerca el teléfono o escanea el QR.");
+      loadMetrics();
     } catch (error) {
       setMessage((error as Error).message);
     } finally {
@@ -197,6 +209,7 @@ export function AdminPage() {
       );
       setTicket(cancelled);
       setMessage("Activación cancelada.");
+      loadMetrics();
     } catch (error) {
       setMessage((error as Error).message);
     } finally {
@@ -236,6 +249,35 @@ export function AdminPage() {
             <strong>{terminal?.branch.name ?? "Sin configurar"}</strong>
           </div>
         </section>
+
+        {metrics && (
+          <section className="metrics-grid" aria-label="Métricas del MVP">
+            <div className="metric-card">
+              <span>Tickets creados</span>
+              <strong>{metrics.ticketsCreated}</strong>
+            </div>
+            <div className="metric-card">
+              <span>Reclamados</span>
+              <strong>{metrics.ticketsClaimed}</strong>
+              <small>{metrics.claimRate}% de activaciones</small>
+            </div>
+            <div className="metric-card">
+              <span>Tiempo promedio</span>
+              <strong>
+                {metrics.averageClaimSeconds === null
+                  ? "—"
+                  : `${metrics.averageClaimSeconds}s`}
+              </strong>
+            </div>
+            <div className="metric-card">
+              <span>Interacciones</span>
+              <strong>{metrics.pdfDownloads + metrics.shares}</strong>
+              <small>
+                {metrics.sources.QR} QR · {metrics.sources.NFC} NFC
+              </small>
+            </div>
+          </section>
+        )}
 
         <div className="admin-grid">
           <form className="card sale-card" onSubmit={createAndActivate}>
@@ -391,7 +433,7 @@ export function AdminPage() {
               <>
                 <div className="qr-wrap">
                   <QRCodeSVG
-                    value={publicUrl}
+                    value={qrUrl}
                     size={190}
                     level="M"
                     marginSize={2}

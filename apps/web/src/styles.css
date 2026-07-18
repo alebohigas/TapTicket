@@ -140,6 +140,32 @@ h2,
   grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
 }
 
+.metrics-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 24px;
+}
+
+.metric-card {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: grid;
+  gap: 5px;
+  padding: 17px 18px;
+}
+
+.metric-card span,
+.metric-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metric-card strong {
+  font: 800 25px "Manrope", sans-serif;
+}
+
 .card {
   background: var(--paper);
   border: 1px solid rgba(16, 37, 31, 0.08);
@@ -791,6 +817,10 @@ select:focus {
     gap: 18px;
   }
 
+  .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .branch-label {
     display: none;
   }
@@ -808,6 +838,10 @@ select:focus {
 
   .admin-main {
     padding: 28px 14px 60px;
+  }
+
+  .metrics-grid {
+    gap: 9px;
   }
 
   .sale-card,

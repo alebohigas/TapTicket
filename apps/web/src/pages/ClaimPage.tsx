@@ -13,6 +13,9 @@ export function ClaimPage() {
     "loading",
   );
   const [message, setMessage] = useState("");
+  const source = new URLSearchParams(window.location.search).has("source")
+    ? "QR"
+    : "NFC";
 
   useEffect(() => {
     const terminalPath = storeCode
@@ -39,7 +42,7 @@ export function ClaimPage() {
         claimPath,
         {
           method: "POST",
-          body: JSON.stringify({ deviceId: getDeviceId() }),
+          body: JSON.stringify({ deviceId: getDeviceId(), source }),
         },
       );
       localStorage.setItem(`tapticket:${slug}`, claim.claimToken);
